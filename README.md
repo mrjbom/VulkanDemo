@@ -12,7 +12,7 @@ Collection of demo scenes using Vulkan and ImGui
 1. Clone the repository
 ```
  git clone --recurse-submodules https://github.com/mrjbom/VulkanDemos
- cd UnknownEngine
+ cd VulkanDemos
 ```
 2. Download [GLFW Windows pre-compiled binaries](https://www.glfw.org/download.html#windows-pre-compiled-binaries)
 3. Download [VulkanSDK](https://www.lunarg.com/vulkan-sdk/)
