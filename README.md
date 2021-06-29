@@ -5,7 +5,9 @@ Collection of demo scenes using Vulkan and ImGui
 * [GLFW](https://github.com/glfw/glfw/) version >= 3.3.4
 * [glm](https://github.com/g-truc/glm/) version >= 0.9.9.8
 * [imgui](https://github.com/ocornut/imgui/) version >= 1.83
+* [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/) version >= 2.3.0
 * [VulkanSDK](https://www.lunarg.com/vulkan-sdk/) version >= 1.2.176.1
+* [stb](https://github.com/nothings/stb)
 * Any C++17 compiler
 
 ## Installation
@@ -19,3 +21,4 @@ Collection of demo scenes using Vulkan and ImGui
 4. Go to [this](third-party/glfw-libs) folder and read README.md
 5. Go to [this](third-party/vulkansdk-include) folder and read README.md
 6. Go to [this](third-party/vulkansdk-libs) folder and read README.md
+7. Go to [this](third-party/vma-libs) folder and read README.md

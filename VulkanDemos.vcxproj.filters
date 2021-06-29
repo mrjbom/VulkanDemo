@@ -13,10 +13,45 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Source Files\src">
+      <UniqueIdentifier>{f8a6b599-1b5d-4783-acaf-881be05e362a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\MainWindow">
+      <UniqueIdentifier>{7f16bd3a-f865-4b50-beb2-0896e7a28759}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src">
+      <UniqueIdentifier>{7d551c27-4243-4cfb-be2c-99990329e4a8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\MainWindow">
+      <UniqueIdentifier>{217f9df8-49db-414d-91e0-60d90ffa61f2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\ErrorInfo">
+      <UniqueIdentifier>{77d7858d-088a-457a-b9e5-1fb10d9512b5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\ErrorInfo">
+      <UniqueIdentifier>{9f2095cb-7b61-4326-bbfb-b996ba888cc1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
-      <Filter>Header Files</Filter>
+      <Filter>Source Files\src</Filter>
     </ClCompile>
+    <ClCompile Include="src\MainWindow\MainWindow.cpp">
+      <Filter>Source Files\src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ErrorInfo\ValidationLayers.cpp">
+      <Filter>Header Files\src\ErrorInfo</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\MainWindow\MainWindow.h">
+      <Filter>Header Files\src\MainWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ErrorInfo\ErrorInfo.h">
+      <Filter>Source Files\src\ErrorInfo</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ErrorInfo\ValidationLayers.h">
+      <Filter>Source Files\src\ErrorInfo</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
