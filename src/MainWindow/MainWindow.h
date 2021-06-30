@@ -127,6 +127,15 @@ private:
 	std::vector<VkFence>         inFlightFences;
 	std::vector<VkFence>         imagesInFlight;
 	uint8_t                      currentFrame = 0;
+
+	//imgui
+	int							 minimalSwapchainImages = 0;
+	VkDescriptorPool			 imguiDescriptorPool;
+	VkRenderPass				 imguiRenderPass;
+	VkCommandPool				 imguiCommandPool;
+	std::vector<VkCommandBuffer> imguiCommandBuffers;
+	std::vector<VkSemaphore>	 imguiRenderFinishedSemaphores;
+
 public:
 	bool framebufferResized = false;
 	bool minimizedWindowNeedClose = false;
@@ -209,6 +218,15 @@ public:
 	void createCommandBuffers();
 
 	void createSyncObjects();
+
+	//imgui
+	void imguiCreateDescriptorPool();
+	void imguiCreateRenderPass();
+	void imguiInitImpl();
+	void imguiCreateCommandPool();
+	void imguiCreateSyncObjects();
+	void imguiCreateCommandBuffers();
+	void imguiUpdateCommandBuffers(int imageIndex);
 
 	//Render
 	void drawFrame();

@@ -154,6 +154,13 @@
     <ClCompile Include="src\ErrorInfo\ValidationLayers.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\MainWindow\MainWindow.cpp" />
+    <ClCompile Include="third-party\imgui\backends\imgui_impl_glfw.cpp" />
+    <ClCompile Include="third-party\imgui\backends\imgui_impl_vulkan.cpp" />
+    <ClCompile Include="third-party\imgui\imgui.cpp" />
+    <ClCompile Include="third-party\imgui\imgui_demo.cpp" />
+    <ClCompile Include="third-party\imgui\imgui_draw.cpp" />
+    <ClCompile Include="third-party\imgui\imgui_tables.cpp" />
+    <ClCompile Include="third-party\imgui\imgui_widgets.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\ErrorInfo\ErrorInfo.h" />

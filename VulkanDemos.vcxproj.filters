@@ -31,6 +31,15 @@
     <Filter Include="Source Files\src\ErrorInfo">
       <UniqueIdentifier>{9f2095cb-7b61-4326-bbfb-b996ba888cc1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\src\third-party">
+      <UniqueIdentifier>{0b826f9a-5413-4986-80d2-7940410bb14e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\third-party\imgui">
+      <UniqueIdentifier>{1bd4bbd5-d9b0-4028-8478-0d5f65aa16bc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\third-party\imgui\backends">
+      <UniqueIdentifier>{41c784f9-0e5f-483d-870f-4c1ddce990f9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -41,6 +50,27 @@
     </ClCompile>
     <ClCompile Include="src\ErrorInfo\ValidationLayers.cpp">
       <Filter>Header Files\src\ErrorInfo</Filter>
+    </ClCompile>
+    <ClCompile Include="third-party\imgui\imgui.cpp">
+      <Filter>Source Files\src\third-party\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="third-party\imgui\imgui_demo.cpp">
+      <Filter>Source Files\src\third-party\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="third-party\imgui\imgui_draw.cpp">
+      <Filter>Source Files\src\third-party\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="third-party\imgui\imgui_tables.cpp">
+      <Filter>Source Files\src\third-party\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="third-party\imgui\imgui_widgets.cpp">
+      <Filter>Source Files\src\third-party\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="third-party\imgui\backends\imgui_impl_glfw.cpp">
+      <Filter>Source Files\src\third-party\imgui\backends</Filter>
+    </ClCompile>
+    <ClCompile Include="third-party\imgui\backends\imgui_impl_vulkan.cpp">
+      <Filter>Source Files\src\third-party\imgui\backends</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
