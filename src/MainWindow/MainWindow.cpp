@@ -166,6 +166,8 @@ void MainWindow::recreateSwapchain()
 	//For window minimization
 	int width = 0, height = 0;
 	glfwGetFramebufferSize(window, &width, &height);
+	windowWidth = width;
+	windowHeight = height;
 	while (width == 0 || height == 0) {
 		glfwGetFramebufferSize(window, &width, &height);
 		glfwWaitEvents();
@@ -230,12 +232,27 @@ void MainWindow::initGlfw()
 
 void MainWindow::createWindow()
 {
+	GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+	if (primaryMonitor == NULL) {
+		glfwTerminate();
+		throw MakeErrorInfo("GLFW getting primary monitor failed!");
+	}
+	
+	const GLFWvidmode* videoMode = glfwGetVideoMode(primaryMonitor);
+	
+	windowWidth = int(videoMode->width * 0.85);
+	windowHeight = int(videoMode->height * 0.75);
+	windowXPos = (videoMode->width - windowWidth) / 2;
+	windowYPos = (videoMode->height - windowHeight) / 2;
+
 	//Create window
 	window = glfwCreateWindow(windowWidth, windowHeight, "Vulkan window", nullptr, nullptr);
 	if (!window) {
 		glfwTerminate();
 		throw MakeErrorInfo("GLFW window creation failed!");
 	}
+
+	glfwSetWindowPos(window, windowXPos, windowYPos);
 
 	glfwSetWindowUserPointer(window, this);
 	glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
@@ -985,7 +1002,7 @@ void MainWindow::createDescriptorPool()
 	poolInfo.pPoolSizes = poolSizes.data();
 	//Aside from the maximum number of individual descriptors that are available,
 	//we also need to specify the maximum number of descriptor sets that may be allocated
-	poolInfo.maxSets = swapchainImages.size();
+	poolInfo.maxSets = 1;
 
 	if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
 		throw MakeErrorInfo("Failed to create descriptor pool!");
@@ -1002,11 +1019,10 @@ void MainWindow::createDescriptorSets()
 	VkDescriptorSetAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	allocInfo.descriptorPool = descriptorPool;
-	allocInfo.descriptorSetCount = static_cast<uint32_t>(swapchainImages.size());
+	allocInfo.descriptorSetCount = 1;
 	allocInfo.pSetLayouts = layouts.data();
 
-	descriptorSets.resize(swapchainImages.size());
-	if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
+	if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, &descriptorSet) != VK_SUCCESS) {
 		throw MakeErrorInfo("Failed to allocate descriptor sets!");
 	}
 
@@ -1029,7 +1045,7 @@ void MainWindow::createDescriptorSets()
 		//which takes an array of VkWriteDescriptorSet structs as parameter.
 		std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[0].dstSet = descriptorSets[i];
+		descriptorWrites[0].dstSet = descriptorSet;
 		descriptorWrites[0].dstBinding = 0;
 		//Remember that descriptors can be arrays,
 		//so we also need to specify the first index in the array that we want to update.
@@ -1047,7 +1063,7 @@ void MainWindow::createDescriptorSets()
 		descriptorWrites[0].pTexelBufferView = nullptr; // Optional
 
 		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[1].dstSet = descriptorSets[i];
+		descriptorWrites[1].dstSet = descriptorSet;
 		descriptorWrites[1].dstBinding = 1;
 		descriptorWrites[1].dstArrayElement = 0;
 		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1342,7 +1358,6 @@ void MainWindow::transitionImageLayout(VkImage image, VkFormat format, VkImageLa
 		//barrier.srcAccessMask = VK_ACCESS_NONE_KHR; //Not used before the barrier
 		//barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; //Write access to an image or buffer in a clear or copy operation
 
-		//TODO - maybe set VK_ACCESS_HOST_WRITE_BIT?
 		//One thing to note is that command buffer submission results in implicit VK_ACCESS_HOST_WRITE_BIT synchronization at the beginning.
 		//Since the transitionImageLayout function executes a command buffer with only a single command,
 		//you could use this implicit synchronizationand set srcAccessMask to 0 if you ever needed a VK_ACCESS_HOST_WRITE_BIT dependency in a layout transition.
@@ -1353,7 +1368,7 @@ void MainWindow::transitionImageLayout(VkImage image, VkFormat format, VkImageLa
 	}
 	//Transfer destination -> shader reading: shader reads should wait on transfer writes, specifically the shader reads in the fragment shader, because that's where we're going to use the texture
 	else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-		//TODO - for transfer destination -> shader reading
+		//for transfer destination -> shader reading
 		//Now in this case, there is a binding to the fragment shader, but what if you need to use a different shader?
 		//For example, if the image will be used in another shader.
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -1594,7 +1609,7 @@ void MainWindow::createCommandBuffers()
 		vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 		vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-		vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+		vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
 		vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 		vkCmdEndRenderPass(commandBuffers[i]);
@@ -1708,6 +1723,8 @@ void MainWindow::imguiInitImpl()
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();// (void)io;
 
+	io.IniFilename = NULL; //Disable imgui.ini file
+	//io.ConfigFlags
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
@@ -1833,7 +1850,7 @@ void MainWindow::drawFrame()
 		return;
 	}
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-		throw MakeErrorInfo("Failed to acquire swap chain image!");
+		throw MakeErrorInfo("Failed to acquire swapchain image!");
 	}
 
 	// Check if a previous frame is using this image (i.e. there is its fence to wait on)
@@ -1843,6 +1860,8 @@ void MainWindow::drawFrame()
 
 	// Mark the image as now being in use by this frame
 	imagesInFlight[imageIndex] = inFlightFences[currentFrame];
+
+	glfwGetWindowPos(window, &windowXPos, &windowYPos);
 
 	imguiUpdateCommandBuffers(imageIndex);
 

@@ -85,9 +85,11 @@ private:
 	VkQueue      graphicsQueue;
 	VkQueue      presentQueue;
 	VkSurfaceKHR surface;
-	GLFWwindow* window = nullptr;
-	int          windowWidth = 800;
-	int          windowHeight = 600;
+	GLFWwindow*  window = nullptr;
+	int          windowWidth = 0;
+	int          windowHeight = 0;
+	int          windowXPos = 0;
+	int          windowYPos = 0;
 	//List of required extensions
 	const std::vector<const char*> deviceExtensions = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -116,7 +118,7 @@ private:
 	std::vector<VkBuffer>		 uniformBuffers;
 	std::vector<VkDeviceMemory>  uniformBuffersMemory;
 	VkDescriptorPool			 descriptorPool;
-	std::vector<VkDescriptorSet> descriptorSets;
+	VkDescriptorSet				 descriptorSet;
 	VkImage						 textureImage;
 	VkDeviceMemory				 textureImageMemory;
 	VkImageView					 textureImageView;
