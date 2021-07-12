@@ -2,9 +2,12 @@
 #include <exception>
 #include <optional>
 #include <array>
+#include <chrono>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_LEFT_HANDED
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include "../ErrorInfo/ErrorInfo.h"
@@ -58,9 +61,9 @@ struct Vertex
 };
 
 struct MVP_matrixes_t {
-	glm::mat4 model;
-	glm::mat4 view;
-	glm::mat4 projection;
+	alignas(16) glm::mat4 model;
+	alignas(16) glm::mat4 view;
+	alignas(16) glm::mat4 projection;
 };
 
 class MainWindow
@@ -118,11 +121,12 @@ private:
 	std::vector<VkBuffer>		 uniformBuffers;
 	std::vector<VkDeviceMemory>  uniformBuffersMemory;
 	VkDescriptorPool			 descriptorPool;
-	VkDescriptorSet				 descriptorSet;
+	std::vector<VkDescriptorSet> descriptorSets;
 	VkImage						 textureImage;
 	VkDeviceMemory				 textureImageMemory;
 	VkImageView					 textureImageView;
 	VkSampler					 textureSampler;
+	std::vector<VkQueryPool>	 queryPools;
 
 	std::vector<VkSemaphore>     imageAvailableSemaphores;
 	std::vector<VkSemaphore>     renderFinishedSemaphores;
@@ -217,7 +221,11 @@ public:
 
 	void createIndexBuffer();
 
+	void createQueryPools();
+
 	void createCommandBuffers();
+
+	void updateCommandBuffer(int imageIndex);
 
 	void createSyncObjects();
 
@@ -228,7 +236,7 @@ public:
 	void imguiCreateCommandPool();
 	void imguiCreateSyncObjects();
 	void imguiCreateCommandBuffers();
-	void imguiUpdateCommandBuffers(int imageIndex);
+	void imguiUpdateCommandBuffer(int imageIndex);
 
 	//Render
 	void drawFrame();

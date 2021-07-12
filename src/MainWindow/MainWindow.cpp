@@ -6,37 +6,20 @@
 #include <algorithm> // Necessary for std::min/std::max
 #include <fstream>
 #include <chrono>
+#include <thread>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_vulkan.h>
 
-//Triangle
-//const std::vector<Vertex> vertexes = {
-//	{{0.0f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-//	{{0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-//	{{-0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}}
-//};
+float g_timestampValueInMilliseconds = 0;
 
-//Square
-//const std::vector<Vertex> vertexes = {
-//	{{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-//	{{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-//	{{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-//	{{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-//};
-//
-//const std::vector<uint16_t> indices = {
-//	0, 1, 2, 2, 3, 0
-//};
-
-//Square
 const std::vector<Vertex> vertexes = {
-	{{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-	{{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-	{{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-	{{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
+	{{-0.5f, 0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+	{{0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+	{{0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+	{{-0.5f, -0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
 };
 
 const std::vector<uint16_t> indices = {
@@ -75,6 +58,7 @@ void MainWindow::initVulkan()
 	createUniformBuffers();
 	createDescriptorPool();
 	createDescriptorSets();
+	createQueryPools();
 	createCommandBuffers();
 	createSyncObjects();
 
@@ -127,6 +111,9 @@ void MainWindow::finishVulkan()
 
 	vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
 	vkDestroyCommandPool(logicalDevice, imguiCommandPool, nullptr);
+	for (size_t i = 0; i < swapchainImages.size(); ++i) {
+		vkDestroyQueryPool(logicalDevice, queryPools[i], nullptr);
+	}
 	vkDestroyDevice(logicalDevice, nullptr);
 	vkDestroySurfaceKHR(instance, surface, nullptr);
 #ifdef _DEBUG
@@ -268,7 +255,9 @@ void MainWindow::createInstance()
 	appInfo.applicationVersion = VK_MAKE_VERSION(0, 0, 1);
 	appInfo.pEngineName = "No Engine";
 	appInfo.engineVersion = VK_MAKE_VERSION(0, 0, 1);
-	appInfo.apiVersion = VK_API_VERSION_1_0;
+	//for "Allow negative height to be specified in the VkViewport::height field to perform y-inversion of the clip-space to framebuffer-space transform.
+	//This allows apps to avoid having to use gl_Position.y = -gl_Position.y in shaders also targeting other APIs." from VK_KHR_maintenance1 (Promotion to Vulkan 1.1)
+	appInfo.apiVersion = VK_API_VERSION_1_1;
 
 	//Here we can specify the extensions and validations layers required for us
 	VkInstanceCreateInfo createInfo{};
@@ -383,6 +372,8 @@ void MainWindow::pickPhysicalDevice()
 }
 
 bool MainWindow::isDeviceSuitable(VkPhysicalDevice device) {
+	VkPhysicalDeviceProperties deviceProperties;
+	vkGetPhysicalDeviceProperties(device, &deviceProperties);
 	VkPhysicalDeviceFeatures supportedDeviceFeatures;
 	vkGetPhysicalDeviceFeatures(device, &supportedDeviceFeatures);
 
@@ -396,7 +387,28 @@ bool MainWindow::isDeviceSuitable(VkPhysicalDevice device) {
 		swapchainAdequate = !swapchainSupport.formats.empty() && !swapchainSupport.presentModes.empty();
 	}
 
-	return indices.isComplete() && extensionsSupported && swapchainAdequate && supportedDeviceFeatures.samplerAnisotropy;
+	if (indices.isComplete() == false)
+	{
+		return false;
+	}
+	if (extensionsSupported == false)
+	{
+		return false;
+	}
+	if (swapchainAdequate == false)
+	{
+		return false;
+	}
+	if (supportedDeviceFeatures.samplerAnisotropy == false)
+	{
+		return false;
+	}
+	if (deviceProperties.limits.timestampComputeAndGraphics == false)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 MainWindow::QueueFamilyIndices MainWindow::findQueueFamilies(VkPhysicalDevice device) {
@@ -648,6 +660,7 @@ VkPresentModeKHR MainWindow::chooseSwapPresentMode(const std::vector<VkPresentMo
 	}
 
 	//VK_PRESENT_MODE_FIFO_KHR mode is guaranteed to be available
+	//Synchronized with the monitor frequency(?)
 	return VK_PRESENT_MODE_FIFO_KHR;
 }
 
@@ -816,9 +829,9 @@ void MainWindow::createGraphicsPipeline()
 
 	VkViewport viewport{};
 	viewport.x = 0.0f;
-	viewport.y = 0.0f;
+	viewport.y = (float)swapchainExtent.height;
 	viewport.width = (float)swapchainExtent.width;
-	viewport.height = (float)swapchainExtent.height;
+	viewport.height = -(float)swapchainExtent.height;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
@@ -1002,7 +1015,7 @@ void MainWindow::createDescriptorPool()
 	poolInfo.pPoolSizes = poolSizes.data();
 	//Aside from the maximum number of individual descriptors that are available,
 	//we also need to specify the maximum number of descriptor sets that may be allocated
-	poolInfo.maxSets = 1;
+	poolInfo.maxSets = swapchainImages.size();
 
 	if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
 		throw MakeErrorInfo("Failed to create descriptor pool!");
@@ -1014,15 +1027,16 @@ void MainWindow::createDescriptorSets()
 	//A descriptor set allocation is described with a VkDescriptorSetAllocateInfo struct.
 	//You need to specify the descriptor pool to allocate from, the number of descriptor sets to allocate,
 	//and the descriptor layout to base them on
+	descriptorSets.resize(swapchainImages.size());
 
 	std::vector<VkDescriptorSetLayout> layouts(swapchainImages.size(), descriptorSetLayout);
 	VkDescriptorSetAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	allocInfo.descriptorPool = descriptorPool;
-	allocInfo.descriptorSetCount = 1;
+	allocInfo.descriptorSetCount = static_cast<uint32_t>(swapchainImages.size());
 	allocInfo.pSetLayouts = layouts.data();
 
-	if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, &descriptorSet) != VK_SUCCESS) {
+	if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
 		throw MakeErrorInfo("Failed to allocate descriptor sets!");
 	}
 
@@ -1045,7 +1059,7 @@ void MainWindow::createDescriptorSets()
 		//which takes an array of VkWriteDescriptorSet structs as parameter.
 		std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[0].dstSet = descriptorSet;
+		descriptorWrites[0].dstSet = descriptorSets[i];
 		descriptorWrites[0].dstBinding = 0;
 		//Remember that descriptors can be arrays,
 		//so we also need to specify the first index in the array that we want to update.
@@ -1063,7 +1077,7 @@ void MainWindow::createDescriptorSets()
 		descriptorWrites[0].pTexelBufferView = nullptr; // Optional
 
 		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[1].dstSet = descriptorSet;
+		descriptorWrites[1].dstSet = descriptorSets[i];
 		descriptorWrites[1].dstBinding = 1;
 		descriptorWrites[1].dstArrayElement = 0;
 		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1133,7 +1147,7 @@ void MainWindow::createCommandPool()
 	VkCommandPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-	poolInfo.flags = 0; // Optional
+	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
 	if (vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
 		throw MakeErrorInfo("Failed to create command pool!");
@@ -1561,6 +1575,20 @@ void MainWindow::createIndexBuffer()
 	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 }
 
+void MainWindow::createQueryPools()
+{
+	queryPools.resize(swapchainImages.size());
+	for (size_t i = 0; i < swapchainImages.size(); ++i) {
+		VkQueryPoolCreateInfo query_pool_info{};
+		query_pool_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+		query_pool_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+		query_pool_info.queryCount = 2; //start time and end time
+		if (vkCreateQueryPool(logicalDevice, &query_pool_info, nullptr, &queryPools[i]) != VK_SUCCESS) {
+			throw MakeErrorInfo("Failed to create query pool!");
+		}
+	}
+}
+
 void MainWindow::createCommandBuffers()
 {
 	commandBuffers.resize(swapchainFramebuffers.size());
@@ -1575,47 +1603,51 @@ void MainWindow::createCommandBuffers()
 	if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
 		throw MakeErrorInfo("Failed to allocate command buffers!");
 	}
+}
 
-	for (size_t i = 0; i < swapchainImages.size(); ++i) {
-		//Starting recording command buffer
-		VkCommandBufferBeginInfo beginInfo{};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = 0; // Optional
-		beginInfo.pInheritanceInfo = nullptr; // Optional
+void MainWindow::updateCommandBuffer(int imageIndex)
+{
+	//Starting recording command buffer
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = 0; // Optional
+	beginInfo.pInheritanceInfo = nullptr; // Optional
 
-		if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS) {
-			throw MakeErrorInfo("Failed to begin recording command buffer!");
-		}
+	//Start recording
+	if (vkBeginCommandBuffer(commandBuffers[imageIndex], &beginInfo) != VK_SUCCESS) {
+		throw MakeErrorInfo("Failed to begin recording command buffer!");
+	}
 
-		//Starting a render pass
-		//Configure render pass
-		VkRenderPassBeginInfo renderPassInfo{};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = renderPass;
-		renderPassInfo.framebuffer = swapchainFramebuffers[i];
-		renderPassInfo.renderArea.offset = { 0, 0 };
-		renderPassInfo.renderArea.extent = swapchainExtent;
+	//Starting a render pass
+	//Configure render pass
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = renderPass;
+	renderPassInfo.framebuffer = swapchainFramebuffers[imageIndex];
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent = swapchainExtent;
 
-		VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-		renderPassInfo.clearValueCount = 1;
-		renderPassInfo.pClearValues = &clearColor;
+	VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+	renderPassInfo.clearValueCount = 1;
+	renderPassInfo.pClearValues = &clearColor;
 
-		//Start recording
-		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+	vkCmdResetQueryPool(commandBuffers[imageIndex], queryPools[imageIndex], 0, 2);
+	vkCmdBeginRenderPass(commandBuffers[imageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdWriteTimestamp(commandBuffers[imageIndex], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, queryPools[imageIndex], 0);
+	vkCmdBindPipeline(commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
-		VkBuffer vertexBuffers[] = { vertexBuffer };
-		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-
-		vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-
-		vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-		vkCmdEndRenderPass(commandBuffers[i]);
-		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
-			throw MakeErrorInfo("Failed to record command buffer!");
-		}
+	VkBuffer vertexBuffers[] = { vertexBuffer };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(commandBuffers[imageIndex], 0, 1, vertexBuffers, offsets);
+	vkCmdBindIndexBuffer(commandBuffers[imageIndex], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+	vkCmdBindDescriptorSets(commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[imageIndex], 0, nullptr);
+	
+	vkCmdDrawIndexed(commandBuffers[imageIndex], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+	
+	vkCmdWriteTimestamp(commandBuffers[imageIndex], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, queryPools[imageIndex], 1);
+	vkCmdEndRenderPass(commandBuffers[imageIndex]);
+	if (vkEndCommandBuffer(commandBuffers[imageIndex]) != VK_SUCCESS) {
+		throw MakeErrorInfo("Failed to record command buffer!");
 	}
 }
 
@@ -1644,7 +1676,8 @@ void MainWindow::createSyncObjects()
 
 
 //imgui
-void checkImguiError(VkResult err) {
+void checkImguiError(VkResult err)
+{
 }
 
 void MainWindow::imguiCreateDescriptorPool()
@@ -1799,13 +1832,18 @@ void MainWindow::imguiCreateCommandBuffers()
 	}
 }
 
-void MainWindow::imguiUpdateCommandBuffers(int imageIndex)
+void MainWindow::imguiUpdateCommandBuffer(int imageIndex)
 {
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 
-	ImGui::ShowDemoWindow();
+	//ImGui::ShowDemoWindow();
+	static bool windowOpened = true;
+	ImGui::Begin("Rendertime", &windowOpened, 0);
+		ImGui::Text("Total frametime: %f", 1000.0f / ImGui::GetIO().Framerate);
+		ImGui::Text("Square command buffer execution time: %f", g_timestampValueInMilliseconds);
+	ImGui::End();
 
 	ImGui::Render();
 	ImDrawData* main_draw_data = ImGui::GetDrawData();
@@ -1843,7 +1881,6 @@ void MainWindow::drawFrame()
 	//Acquire image from swapchain
 	uint32_t imageIndex;
 	//UINT64_MAX disables timeout, timeout is infinite
-
 	VkResult result = vkAcquireNextImageKHR(logicalDevice, swapchain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 		recreateSwapchain();
@@ -1858,12 +1895,29 @@ void MainWindow::drawFrame()
 		vkWaitForFences(logicalDevice, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
 	}
 
+	static std::vector<bool> isFirstTimeFrameRender(MAX_FRAMES_IN_FLIGHT, true);
+	if (isFirstTimeFrameRender[currentFrame] == false) {
+		uint64_t timestampsResults[4];
+		vkGetQueryPoolResults(logicalDevice, queryPools[imageIndex], 0, 2, sizeof(timestampsResults), timestampsResults, 0, VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+		//timestampsResults[0] is start point
+		////timestampsResults[2] is end point
+		VkPhysicalDeviceProperties deviceProperties;
+		vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+		float nanosecondsInTimestamp = deviceProperties.limits.timestampPeriod;
+		float timestampValueInMilliseconds = ((timestampsResults[2] - timestampsResults[0]) * nanosecondsInTimestamp) / 1000000;
+		g_timestampValueInMilliseconds = timestampValueInMilliseconds;
+	}
+	else {
+		isFirstTimeFrameRender[currentFrame] = false;
+	}
+
 	// Mark the image as now being in use by this frame
 	imagesInFlight[imageIndex] = inFlightFences[currentFrame];
 
 	glfwGetWindowPos(window, &windowXPos, &windowYPos);
 
-	imguiUpdateCommandBuffers(imageIndex);
+	updateCommandBuffer(imageIndex);
+	imguiUpdateCommandBuffer(imageIndex);
 
 	updateUniformBuffer(imageIndex);
 
@@ -1914,7 +1968,7 @@ void MainWindow::drawFrame()
 		}
 	}
 	else if (result != VK_SUCCESS) {
-		throw MakeErrorInfo("Failed to present swap chain image!");
+		throw MakeErrorInfo("Failed to present swapchain image!");
 	}
 
 	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -1929,11 +1983,23 @@ void MainWindow::updateUniformBuffer(uint32_t currentImage)
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 	MVP_matrixes_t mvp_matrixes;
-
-	mvp_matrixes.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	mvp_matrixes.view = glm::lookAt(glm::vec3(0.0f, 0.0f, -3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-	mvp_matrixes.projection = glm::perspective(glm::radians(45.0f), float(swapchainExtent.width) / swapchainExtent.height, 0.1f, 10.0f);
-	mvp_matrixes.projection[1][1] *= -1;
+	
+	//Valid if
+	//VkViewport::height negative
+	//VkViewport::y = swapchain height
+	//GLM_FORCE_LEFT_HANDED defined
+	//Moves deeper into the screen.
+	//Rotates counterclockwise on the screen.
+	//The scale does not break the matrices.
+	//mvp_matrixes.model = 
+	//	glm::translate(glm::mat4(1.0f), glm::vec3(time * 0.0, time * 0.0f, time * 0.5f)) *
+	//	glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
+	//	glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5, 1.0));
+	//mvp_matrixes.view = glm::lookAt(glm::vec3(0.0f, 0.0f, -3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	//mvp_matrixes.projection = glm::perspective(glm::radians(45.0f), float(swapchainExtent.width) / (float)swapchainExtent.height, 0.1f, 10.0f);
+	mvp_matrixes.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+	mvp_matrixes.view = glm::lookAt(glm::vec3(0.0f, 0.0f, -3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	mvp_matrixes.projection = glm::perspective(glm::radians(45.0f), float(swapchainExtent.width) / (float)swapchainExtent.height, 0.1f, 10.0f);
 
 	void* dataPtr;
 	vkMapMemory(logicalDevice, uniformBuffersMemory[currentImage], 0, sizeof(MVP_matrixes_t), 0, &dataPtr);
