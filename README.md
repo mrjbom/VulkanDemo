@@ -1,6 +1,5 @@
 # VulkanDemo
 A simple application using Vulkan and ImGui created using [this](https://vulkan-tutorial.com/) tutorial.
-The development has been moved [here](https://github.com/mrjbom/VulkanSamples).
 
 ## Dependencies
 * [GLFW](https://github.com/glfw/glfw/) version >= 3.3.4
