@@ -242,7 +242,7 @@ void MainWindow::createInstance()
 	VkApplicationInfo appInfo{};
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.pApplicationName = "Graphics Viewer";
-	appInfo.applicationVersion = VK_MAKE_VERSION(0, 0, 1);
+	appInfo.applicationVersion = VK_MAKE_VERSION(0, 1, 0);
 	appInfo.pEngineName = "No Engine";
 	appInfo.engineVersion = VK_MAKE_VERSION(0, 0, 1);
 	//for "Allow negative height to be specified in the VkViewport::height field to perform y-inversion of the clip-space to framebuffer-space transform.
