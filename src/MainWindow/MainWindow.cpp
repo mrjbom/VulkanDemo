@@ -39,7 +39,7 @@ void MainWindow::initVulkan()
 	createInstance();
 #ifdef _DEBUG
 	setupDebugMessenger();
-#endif
+#endif // _DEBUG
 	createSurface();
 	pickPhysicalDevice();
 	createLogicalDevice();
@@ -821,8 +821,8 @@ void MainWindow::createRenderPass()
 
 void MainWindow::createGraphicsPipeline()
 {
-	std::vector<char> vertShaderCode = readShaderFile("src/shaders/vertshader.vert.spv");
-	std::vector<char> fragShaderCode = readShaderFile("src/shaders/fragshader.frag.spv");
+	std::vector<char> vertShaderCode = readShaderFile("data/shaders/vertshader.vert.spv");
+	std::vector<char> fragShaderCode = readShaderFile("data/shaders/fragshader.frag.spv");
 
 	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
 	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
@@ -1287,7 +1287,7 @@ void MainWindow::createImage(uint32_t width, uint32_t height, VkFormat format, V
 void MainWindow::createTextureImage()
 {
 	int textureImageWidth, textureImageHeight, textureImageChannels;
-	stbi_uc* textureImagePixels = stbi_load("src/textures/Texture.png", &textureImageWidth, &textureImageHeight, &textureImageChannels, STBI_rgb_alpha);
+	stbi_uc* textureImagePixels = stbi_load("data/textures/Texture.png", &textureImageWidth, &textureImageHeight, &textureImageChannels, STBI_rgb_alpha);
 	VkDeviceSize imageSize = (uint64_t)textureImageWidth * textureImageHeight * 4;
 
 	if (!textureImagePixels) {
