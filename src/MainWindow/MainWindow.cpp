@@ -65,7 +65,6 @@ void MainWindow::initVulkan()
 	//imgui
 	imguiCreateDescriptorPool();
 	imguiInitImpl();
-	imguiCreateCommandPool();
 }
 
 void MainWindow::renderLoop()
@@ -106,7 +105,6 @@ void MainWindow::finishVulkan()
 	ImGui_ImplGlfw_Shutdown();
 
 	vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
-	vkDestroyCommandPool(logicalDevice, imguiCommandPool, nullptr);
 	for (size_t i = 0; i < swapchainImages.size(); ++i) {
 		vkDestroyQueryPool(logicalDevice, queryPools[i], nullptr);
 	}
@@ -527,21 +525,21 @@ void MainWindow::createSurface()
 
 void MainWindow::createSwapchain()
 {
-	SwapchainSupportDetails swapChainSupport = querySwapchainSupport(physicalDevice);
+	SwapchainSupportDetails swapchainSupport = querySwapchainSupport(physicalDevice);
 
-	VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
-	VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-	VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+	VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapchainSupport.formats);
+	VkPresentModeKHR presentMode = chooseSwapPresentMode(swapchainSupport.presentModes);
+	VkExtent2D extent = chooseSwapExtent(swapchainSupport.capabilities);
 
 	//We have to choose the number of images in the swap chain queue that we want to use
-	uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1; //using minimum means that we may sometimes have to wait on the driver to complete internal operations before we can acquire another image to render to.
+	uint32_t imageCount = swapchainSupport.capabilities.minImageCount + 1; //using minimum means that we may sometimes have to wait on the driver to complete internal operations before we can acquire another image to render to.
 	//if VkSurfaceCapabilitiesKHR::maxImageCount = 0, then there is no limit on images
-	if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
-		imageCount = swapChainSupport.capabilities.maxImageCount;
+	if (swapchainSupport.capabilities.maxImageCount > 0 && imageCount > swapchainSupport.capabilities.maxImageCount) {
+		imageCount = swapchainSupport.capabilities.maxImageCount;
 	}
 
 	//imgui
-	minimalSwapchainImages = swapChainSupport.capabilities.minImageCount + 1;
+	minimalSwapchainImages = swapchainSupport.capabilities.minImageCount + 1;
 	//ImGui_ImplVulkan_SetMinImageCount(minimalSwapchainImages);
 
 	VkSwapchainCreateInfoKHR createInfo{};
@@ -575,7 +573,7 @@ void MainWindow::createSwapchain()
 	}
 
 	//We will not apply transformations to images
-	createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
+	createInfo.preTransform = swapchainSupport.capabilities.currentTransform;
 	//The compositeAlpha field specifies if the alpha channel should be used for blending with other windows in the window system.
 	//ignore alpha chanel
 	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -1800,20 +1798,6 @@ void MainWindow::imguiInitImpl()
 	ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
 	endSingleTimeCommands(commandBuffer);
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
-}
-
-void MainWindow::imguiCreateCommandPool()
-{
-	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
-
-	VkCommandPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-
-	if (vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &imguiCommandPool) != VK_SUCCESS) {
-		throw MakeErrorInfo("Failed to create imgui command pool!");
-	}
 }
 
 //Render

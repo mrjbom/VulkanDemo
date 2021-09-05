@@ -84,15 +84,15 @@ private:
 			return graphicsFamily.has_value() && presentFamily.has_value();
 		}
 	};
-	VkDevice                     logicalDevice;
-	VkQueue                      graphicsQueue;
-	VkQueue                      presentQueue;
-	VkSurfaceKHR                 surface;
-	GLFWwindow*                  window = nullptr;
-	int                          windowWidth = 0;
-	int                          windowHeight = 0;
-	int                          windowXPos = 0;
-	int                          windowYPos = 0;
+	VkDevice					 logicalDevice;
+	VkQueue						 graphicsQueue;
+	VkQueue						 presentQueue;
+	VkSurfaceKHR				 surface;
+	GLFWwindow*					 window = nullptr;
+	int							 windowWidth = 0;
+	int							 windowHeight = 0;
+	int							 windowXPos = 0;
+	int							 windowYPos = 0;
 	//List of required extensions
 	const std::vector<const char*> deviceExtensions = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -102,10 +102,10 @@ private:
 		std::vector<VkSurfaceFormatKHR> formats;
 		std::vector<VkPresentModeKHR> presentModes;
 	};
-	VkSwapchainKHR               swapchain;
-	std::vector<VkImage>         swapchainImages;
-	VkFormat                     swapchainImageFormat{};
-	VkExtent2D                   swapchainExtent{};
+	VkSwapchainKHR				 swapchain;
+	std::vector<VkImage>		 swapchainImages;
+	VkFormat					 swapchainImageFormat{};
+	VkExtent2D					 swapchainExtent{};
 	std::vector<VkImageView>	 swapchainImageViews;
 	VkRenderPass				 renderPass;
 	VkDescriptorSetLayout		 descriptorSetLayout;
@@ -128,23 +128,19 @@ private:
 	VkSampler					 textureSampler;
 	std::vector<VkQueryPool>	 queryPools;
 
-	std::vector<VkSemaphore>     imageAvailableSemaphores;
-	std::vector<VkSemaphore>     renderFinishedSemaphores;
-	std::vector<VkFence>         inFlightFences;
-	std::vector<VkFence>         imagesInFlight;
-	uint8_t                      currentFrame = 0;
+	std::vector<VkSemaphore>	 imageAvailableSemaphores;
+	std::vector<VkSemaphore>	 renderFinishedSemaphores;
+	std::vector<VkFence>		 inFlightFences;
+	std::vector<VkFence>		 imagesInFlight;
+	uint8_t						 currentFrame = 0;
 
 	//imgui
 	int							 minimalSwapchainImages = 0;
 	VkDescriptorPool			 imguiDescriptorPool;
-	VkRenderPass				 imguiRenderPass;
-	VkCommandPool				 imguiCommandPool;
-	std::vector<VkCommandBuffer> imguiCommandBuffers;
-	std::vector<VkSemaphore>	 imguiRenderFinishedSemaphores;
-
 public:
-	bool framebufferResized = false;
-	bool minimizedWindowNeedClose = false;
+	bool						 framebufferResized = false;
+	bool						 minimizedWindowNeedClose = false;
+
 public:
 	void initVulkan();
 	void renderLoop();
@@ -232,7 +228,6 @@ public:
 	//imgui
 	void imguiCreateDescriptorPool();
 	void imguiInitImpl();
-	void imguiCreateCommandPool();
 
 	//Render
 	void drawFrame();
