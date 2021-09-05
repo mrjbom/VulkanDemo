@@ -1,3 +1,3 @@
 # What is this folder?
 
-Here you need to put the *Lib32* folder from the VulkanSDK
+This folder must contain a *Win32* folder that contains the Vulkan SDK *.lib* files, from *Lib32* folder

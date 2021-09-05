@@ -70,11 +70,11 @@ class MainWindow
 {
 private:
 	//The number of frames that can be rendered simultaneously
-	const size_t MAX_FRAMES_IN_FLIGHT = 2;
-
-	VkInstance               instance;
-	VkDebugUtilsMessengerEXT debugMessenger;
-	VkPhysicalDevice         physicalDevice;
+	const size_t				MAX_FRAMES_IN_FLIGHT = 2;
+							   
+	VkInstance					instance;
+	VkDebugUtilsMessengerEXT	debugMessenger;
+	VkPhysicalDevice			physicalDevice;
 	struct QueueFamilyIndices {
 		//Graphical operation support
 		std::optional<uint32_t> graphicsFamily;
@@ -84,15 +84,15 @@ private:
 			return graphicsFamily.has_value() && presentFamily.has_value();
 		}
 	};
-	VkDevice     logicalDevice;
-	VkQueue      graphicsQueue;
-	VkQueue      presentQueue;
-	VkSurfaceKHR surface;
-	GLFWwindow*  window = nullptr;
-	int          windowWidth = 0;
-	int          windowHeight = 0;
-	int          windowXPos = 0;
-	int          windowYPos = 0;
+	VkDevice                     logicalDevice;
+	VkQueue                      graphicsQueue;
+	VkQueue                      presentQueue;
+	VkSurfaceKHR                 surface;
+	GLFWwindow*                  window = nullptr;
+	int                          windowWidth = 0;
+	int                          windowHeight = 0;
+	int                          windowXPos = 0;
+	int                          windowYPos = 0;
 	//List of required extensions
 	const std::vector<const char*> deviceExtensions = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -104,15 +104,15 @@ private:
 	};
 	VkSwapchainKHR               swapchain;
 	std::vector<VkImage>         swapchainImages;
-	VkFormat				     swapchainImageFormat{};
-	VkExtent2D				     swapchainExtent{};
-	std::vector<VkImageView>     swapchainImageViews;
-	VkRenderPass			     renderPass;
+	VkFormat                     swapchainImageFormat{};
+	VkExtent2D                   swapchainExtent{};
+	std::vector<VkImageView>	 swapchainImageViews;
+	VkRenderPass				 renderPass;
 	VkDescriptorSetLayout		 descriptorSetLayout;
-	VkPipelineLayout		     pipelineLayout;
-	VkPipeline				     graphicsPipeline;
-	std::vector<VkFramebuffer>   swapchainFramebuffers;
-	VkCommandPool                commandPool;
+	VkPipelineLayout			 pipelineLayout;
+	VkPipeline					 graphicsPipeline;
+	std::vector<VkFramebuffer>	 swapchainFramebuffers;
+	VkCommandPool				 commandPool;
 	std::vector<VkCommandBuffer> commandBuffers;
 	VkBuffer					 vertexBuffer;
 	VkDeviceMemory				 vertexBufferMemory;
@@ -231,12 +231,8 @@ public:
 
 	//imgui
 	void imguiCreateDescriptorPool();
-	void imguiCreateRenderPass();
 	void imguiInitImpl();
 	void imguiCreateCommandPool();
-	void imguiCreateSyncObjects();
-	void imguiCreateCommandBuffers();
-	void imguiUpdateCommandBuffer(int imageIndex);
 
 	//Render
 	void drawFrame();

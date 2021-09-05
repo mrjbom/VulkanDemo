@@ -74,7 +74,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(MSBuildProjectDirectory)\third-party\glfw\include;$(MSBuildProjectDirectory)\third-party\glm;$(MSBuildProjectDirectory)\third-party\imgui;$(MSBuildProjectDirectory)\third-party\vulkansdk-include;$(MSBuildProjectDirectory)\third-party\VulkanMemoryAllocator\include;$(MSBuildProjectDirectory)\third-party\stb;$(IncludePath)</IncludePath>
-    <LibraryPath>$(MSBuildProjectDirectory)\third-party\glfw-libs\glfw-3.3.4.bin.WIN32\lib-vc2019;$(MSBuildProjectDirectory)\third-party\vulkansdk-libs\Lib32;$(MSBuildProjectDirectory)\third-party\vma-libs\x32d;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(MSBuildProjectDirectory)\third-party\glfw-libs\Win32Debug;$(MSBuildProjectDirectory)\third-party\vulkansdk-libs\Win32;$(MSBuildProjectDirectory)\third-party\vma-libs\x32d;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>

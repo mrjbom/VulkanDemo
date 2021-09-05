@@ -1861,7 +1861,6 @@ void MainWindow::drawFrame()
 	glfwGetWindowPos(window, &windowXPos, &windowYPos);
 
 	updateCommandBuffer(imageIndex);
-	//imguiUpdateCommandBuffer(imageIndex);
 
 	updateUniformBuffer(imageIndex);
 
