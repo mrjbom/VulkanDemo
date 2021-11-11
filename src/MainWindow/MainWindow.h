@@ -126,7 +126,6 @@ private:
 	VkDeviceMemory				 textureImageMemory;
 	VkImageView					 textureImageView;
 	VkSampler					 textureSampler;
-	std::vector<VkQueryPool>	 queryPools;
 
 	std::vector<VkSemaphore>	 imageAvailableSemaphores;
 	std::vector<VkSemaphore>	 renderFinishedSemaphores;
@@ -217,11 +216,7 @@ public:
 
 	void createIndexBuffer();
 
-	void createQueryPools();
-
 	void createCommandBuffers();
-
-	void updateCommandBuffer(int imageIndex);
 
 	void createSyncObjects();
 
@@ -231,5 +226,6 @@ public:
 
 	//Render
 	void drawFrame();
+	void updateCommandBuffer(int imageIndex);
 	void updateUniformBuffer(uint32_t currentImage);
 };

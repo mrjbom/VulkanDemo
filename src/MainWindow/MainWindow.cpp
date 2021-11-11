@@ -13,8 +13,6 @@
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_vulkan.h>
 
-float g_timestampValueInMilliseconds = 0;
-
 const std::vector<Vertex> vertexes = {
 	{{-0.5f, 0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
 	{{0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
@@ -58,7 +56,6 @@ void MainWindow::initVulkan()
 	createUniformBuffers();
 	createDescriptorPool();
 	createDescriptorSets();
-	createQueryPools();
 	createCommandBuffers();
 	createSyncObjects();
 
@@ -105,9 +102,6 @@ void MainWindow::finishVulkan()
 	ImGui_ImplGlfw_Shutdown();
 
 	vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
-	for (size_t i = 0; i < swapchainImages.size(); ++i) {
-		vkDestroyQueryPool(logicalDevice, queryPools[i], nullptr);
-	}
 	vkDestroyDevice(logicalDevice, nullptr);
 	vkDestroySurfaceKHR(instance, surface, nullptr);
 #ifdef _DEBUG
@@ -713,73 +707,68 @@ void MainWindow::createRenderPass()
 {
 	//Create render color attachment
 	//Attachment description
+	VkAttachmentDescription renderColorAttachment{};
+	renderColorAttachment.format = swapchainImageFormat;
+	renderColorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	//Clear attachment before render
+	renderColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	//The rendered attachment will be stored in memory for imgui render
+	renderColorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	//We are not interested in the stencil data
+	renderColorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	renderColorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	//We are not interested in the layout before starting the render
+	renderColorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	//The layout should be VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL because the image will be drawn on top of this ImGui and only then displayed.
+	renderColorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	//Create imgui color attachment
+	//Attachment description
 	VkAttachmentDescription imguiColorAttachment{};
 	imguiColorAttachment.format = swapchainImageFormat;
 	imguiColorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	//Clear attachment before render
-	imguiColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	//The rendered attachment will be stored in memory for imgui render
+	//Load render attachment before render imgui
+	imguiColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	//Render attachment will be stored in memory for visualization
 	imguiColorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	//We are not interested in the stencil data
 	imguiColorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	imguiColorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	//We are not interested in the layout before starting the render
-	imguiColorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	//The layout should be VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL because the image will be drawn on top of this ImGui and only then displayed.
-	imguiColorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	//Create imgui color attachment
-	//Attachment description
-	VkAttachmentDescription colorAttachment{};
-	colorAttachment.format = swapchainImageFormat;
-	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	//Load imgui attachment before render
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	//The rendered attachment will be stored in memory for visualization
-	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	//We are not interested in the stencil data
-	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	imguiColorAttachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	//We want the image to be ready for presentation using the swap chain after rendering
-	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	imguiColorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-	std::vector<VkAttachmentDescription> attachmentsDescriptions = { imguiColorAttachment, colorAttachment };
+	std::vector<VkAttachmentDescription> attachmentsDescriptions = { renderColorAttachment, imguiColorAttachment };
 
 	//Subpasses and attachment references
 	//Subpass refers to the attachment using VkAttachmentReference
-	VkAttachmentReference imguiColorAttachmentRef{};
+	VkAttachmentReference renderColorAttachmentRef{};
 	//Index of the attachment that we created above earlier
-	imguiColorAttachmentRef.attachment = 0;
+	renderColorAttachmentRef.attachment = 0;
+	renderColorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference imguiColorAttachmentRef{};
+	imguiColorAttachmentRef.attachment = 1;
 	imguiColorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-	VkAttachmentReference colorAttachmentRef{};
-	colorAttachmentRef.attachment = 1;
-	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	std::vector<VkAttachmentReference> attachmentsReferences = { imguiColorAttachmentRef, colorAttachmentRef };
-
-	VkSubpassDescription imguiRenderSubpass{};
-	imguiRenderSubpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	imguiRenderSubpass.colorAttachmentCount = 1;
-	//The index of the attachment in this array is directly referenced from the fragment shader
-	//with the layout(location = 0) out vec4 outColor directive!
-	imguiRenderSubpass.pColorAttachments = &imguiColorAttachmentRef;
-	std::vector<uint32_t> preserveAttachmentsIndices = { 1 };
-	imguiRenderSubpass.preserveAttachmentCount = preserveAttachmentsIndices.size();
-	imguiRenderSubpass.pPreserveAttachments = preserveAttachmentsIndices.data();
+	std::vector<VkAttachmentReference> attachmentsReferences = { renderColorAttachmentRef, imguiColorAttachmentRef };
 
 	VkSubpassDescription renderSubpass{};
 	renderSubpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	renderSubpass.colorAttachmentCount = 1;
 	//The index of the attachment in this array is directly referenced from the fragment shader
 	//with the layout(location = 0) out vec4 outColor directive!
-	renderSubpass.pColorAttachments = &colorAttachmentRef;
-	//preserveAttachmentsIndices = { 0 };
-	//renderSubpass.preserveAttachmentCount = preserveAttachmentsIndices.size();
-	//renderSubpass.pPreserveAttachments = preserveAttachmentsIndices.data();
+	renderSubpass.pColorAttachments = &renderColorAttachmentRef;
+	std::vector<uint32_t> preserveAttachmentsIndices = { 1 };
+	renderSubpass.preserveAttachmentCount = preserveAttachmentsIndices.size();
+	renderSubpass.pPreserveAttachments = preserveAttachmentsIndices.data();
 
-	std::vector<VkSubpassDescription> subpasses = { imguiRenderSubpass, renderSubpass };
+	VkSubpassDescription imguiSubpass{};
+	imguiSubpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	imguiSubpass.colorAttachmentCount = 1;
+	imguiSubpass.pColorAttachments = &imguiColorAttachmentRef;
+
+	std::vector<VkSubpassDescription> subpasses = { renderSubpass, imguiSubpass };
 
 	//Subpass dependencies
 	//Remember that the subpasses in a render pass automatically take care of image layout transitions.
@@ -787,23 +776,23 @@ void MainWindow::createRenderPass()
 	//which specify memory and execution dependencies between subpasses.
 	//We have only a single subpass right now,
 	//but the operations right before and right after this subpass also count as implicit "subpasses".
-	VkSubpassDependency imguiSubpassDependency{};
-	imguiSubpassDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	imguiSubpassDependency.dstSubpass = 0;
-	imguiSubpassDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	imguiSubpassDependency.srcAccessMask = 0;
-	imguiSubpassDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	imguiSubpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
 	VkSubpassDependency renderSubpassDependency{};
-	renderSubpassDependency.srcSubpass = 0;
-	renderSubpassDependency.dstSubpass = 1;
+	renderSubpassDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	renderSubpassDependency.dstSubpass = 0;
 	renderSubpassDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	renderSubpassDependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	renderSubpassDependency.srcAccessMask = 0;
 	renderSubpassDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	renderSubpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-	std::vector<VkSubpassDependency> subpassesDependencies = { imguiSubpassDependency, renderSubpassDependency };
+	VkSubpassDependency imguiSubpassDependency{};
+	imguiSubpassDependency.srcSubpass = 0;
+	imguiSubpassDependency.dstSubpass = 1;
+	imguiSubpassDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	imguiSubpassDependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	imguiSubpassDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	imguiSubpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	std::vector<VkSubpassDependency> subpassesDependencies = { renderSubpassDependency, imguiSubpassDependency };
 
 	VkRenderPassCreateInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -981,7 +970,7 @@ void MainWindow::createGraphicsPipeline()
 	pipelineInfo.pDynamicState = &dynamicState; // Optional
 	pipelineInfo.layout = pipelineLayout;
 	pipelineInfo.renderPass = renderPass;
-	pipelineInfo.subpass = 1;
+	pipelineInfo.subpass = 0;
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 	pipelineInfo.basePipelineIndex = -1; // Optional
 
@@ -1610,20 +1599,6 @@ void MainWindow::createIndexBuffer()
 	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 }
 
-void MainWindow::createQueryPools()
-{
-	queryPools.resize(swapchainImages.size());
-	for (size_t i = 0; i < swapchainImages.size(); ++i) {
-		VkQueryPoolCreateInfo query_pool_info{};
-		query_pool_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
-		query_pool_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
-		query_pool_info.queryCount = 2; //start time and end time
-		if (vkCreateQueryPool(logicalDevice, &query_pool_info, nullptr, &queryPools[i]) != VK_SUCCESS) {
-			throw MakeErrorInfo("Failed to create query pool!");
-		}
-	}
-}
-
 void MainWindow::createCommandBuffers()
 {
 	commandBuffers.resize(swapchainFramebuffers.size());
@@ -1637,74 +1612,6 @@ void MainWindow::createCommandBuffers()
 	//Allocate command buffers from command pool
 	if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
 		throw MakeErrorInfo("Failed to allocate command buffers!");
-	}
-}
-
-void MainWindow::updateCommandBuffer(int imageIndex)
-{
-	ImGui_ImplVulkan_NewFrame();
-	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame();
-
-	//ImGui::ShowDemoWindow();
-	static bool windowOpened = true;
-	ImGui::Begin("Rendertime", &windowOpened, 0);
-	ImGui::Text("Total frametime: %f", 1000.0f / ImGui::GetIO().Framerate);
-	ImGui::Text("Square command buffer execution time: %f", g_timestampValueInMilliseconds);
-	ImGui::End();
-
-	ImGui::Render();
-	ImDrawData* main_draw_data = ImGui::GetDrawData();
-
-	if (vkResetCommandBuffer(commandBuffers[imageIndex], 0) != VK_SUCCESS) {
-		throw MakeErrorInfo("Failed to reset command pool!");
-	}
-
-	//Starting recording command buffer
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = 0; // Optional
-	beginInfo.pInheritanceInfo = nullptr; // Optional
-
-	//Start recording
-	if (vkBeginCommandBuffer(commandBuffers[imageIndex], &beginInfo) != VK_SUCCESS) {
-		throw MakeErrorInfo("Failed to begin recording command buffer!");
-	}
-
-	//Starting a render pass
-	//Configure render pass
-	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = renderPass;
-	renderPassInfo.framebuffer = swapchainFramebuffers[imageIndex];
-	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = swapchainExtent;
-
-	VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-	renderPassInfo.clearValueCount = 1;
-	renderPassInfo.pClearValues = &clearColor;
-
-	vkCmdResetQueryPool(commandBuffers[imageIndex], queryPools[imageIndex], 0, 2);
-	vkCmdBeginRenderPass(commandBuffers[imageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-	ImGui_ImplVulkan_RenderDrawData(main_draw_data, commandBuffers[imageIndex]);
-
-	vkCmdWriteTimestamp(commandBuffers[imageIndex], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, queryPools[imageIndex], 0);
-	vkCmdBindPipeline(commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-	vkCmdNextSubpass(commandBuffers[imageIndex], VK_SUBPASS_CONTENTS_INLINE);
-
-	VkBuffer vertexBuffers[] = { vertexBuffer };
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(commandBuffers[imageIndex], 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(commandBuffers[imageIndex], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-	vkCmdBindDescriptorSets(commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[imageIndex], 0, nullptr);
-
-	vkCmdDrawIndexed(commandBuffers[imageIndex], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-
-	vkCmdWriteTimestamp(commandBuffers[imageIndex], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, queryPools[imageIndex], 1);
-	vkCmdEndRenderPass(commandBuffers[imageIndex]);
-	if (vkEndCommandBuffer(commandBuffers[imageIndex]) != VK_SUCCESS) {
-		throw MakeErrorInfo("Failed to record command buffer!");
 	}
 }
 
@@ -1791,7 +1698,7 @@ void MainWindow::imguiInitImpl()
 	init_info.MinImageCount = minimalSwapchainImages;
 	init_info.ImageCount = swapchainImages.size();
 	init_info.CheckVkResultFn = checkImguiError;
-	init_info.Subpass = 0;
+	init_info.Subpass = 1;
 	ImGui_ImplVulkan_Init(&init_info, renderPass);
 
 	VkCommandBuffer commandBuffer = beginSingleTimeCommands();
@@ -1821,22 +1728,6 @@ void MainWindow::drawFrame()
 	// Check if a previous frame is using this image (i.e. there is its fence to wait on)
 	if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
 		vkWaitForFences(logicalDevice, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
-	}
-
-	static std::vector<bool> isFirstTimeFrameRender(MAX_FRAMES_IN_FLIGHT, true);
-	if (isFirstTimeFrameRender[currentFrame] == false) {
-		uint64_t timestampsResults[4];
-		vkGetQueryPoolResults(logicalDevice, queryPools[imageIndex], 0, 2, sizeof(timestampsResults), timestampsResults, 0, VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
-		//timestampsResults[0] is start point
-		////timestampsResults[2] is end point
-		VkPhysicalDeviceProperties deviceProperties;
-		vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
-		float nanosecondsInTimestamp = deviceProperties.limits.timestampPeriod;
-		float timestampValueInMilliseconds = ((timestampsResults[2] - timestampsResults[0]) * nanosecondsInTimestamp) / 1000000;
-		g_timestampValueInMilliseconds = timestampValueInMilliseconds;
-	}
-	else {
-		isFirstTimeFrameRender[currentFrame] = false;
 	}
 
 	// Mark the image as now being in use by this frame
@@ -1899,6 +1790,74 @@ void MainWindow::drawFrame()
 	}
 
 	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void MainWindow::updateCommandBuffer(int imageIndex)
+{
+	ImGui_ImplVulkan_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+	static bool windowOpened = true;
+	static bool showDemoWindow = false;
+	ImGui::Begin("Rendertime", &windowOpened, 0);
+	ImGui::Text("Frametime: %f", 1000.0f / ImGui::GetIO().Framerate);
+	ImGui::Checkbox("Show ImGui demo window", &showDemoWindow);
+	ImGui::End();
+	if (showDemoWindow) {
+		ImGui::ShowDemoWindow();
+	}
+
+	ImGui::Render();
+	ImDrawData* main_draw_data = ImGui::GetDrawData();
+
+	if (vkResetCommandBuffer(commandBuffers[imageIndex], 0) != VK_SUCCESS) {
+		throw MakeErrorInfo("Failed to reset command buffer!");
+	}
+
+	//Starting recording command buffer
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = 0; // Optional
+	beginInfo.pInheritanceInfo = nullptr; // Optional
+
+	//Start recording
+	if (vkBeginCommandBuffer(commandBuffers[imageIndex], &beginInfo) != VK_SUCCESS) {
+		throw MakeErrorInfo("Failed to begin recording command buffer!");
+	}
+
+	//Starting a render pass
+	//Configure render pass
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = renderPass;
+	renderPassInfo.framebuffer = swapchainFramebuffers[imageIndex];
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent = swapchainExtent;
+
+	VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+	renderPassInfo.clearValueCount = 1;
+	renderPassInfo.pClearValues = &clearColor;
+
+	//Draw square
+	vkCmdBeginRenderPass(commandBuffers[imageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBindPipeline(commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+	VkBuffer vertexBuffers[] = { vertexBuffer };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(commandBuffers[imageIndex], 0, 1, vertexBuffers, offsets);
+	vkCmdBindIndexBuffer(commandBuffers[imageIndex], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+	vkCmdBindDescriptorSets(commandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[imageIndex], 0, nullptr);
+
+	vkCmdDrawIndexed(commandBuffers[imageIndex], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+	
+	//Draw ImGui
+	vkCmdNextSubpass(commandBuffers[imageIndex], VK_SUBPASS_CONTENTS_INLINE);
+	ImGui_ImplVulkan_RenderDrawData(main_draw_data, commandBuffers[imageIndex]);
+	
+	vkCmdEndRenderPass(commandBuffers[imageIndex]);
+	if (vkEndCommandBuffer(commandBuffers[imageIndex]) != VK_SUCCESS) {
+		throw MakeErrorInfo("Failed to record command buffer!");
+	}
 }
 
 void MainWindow::updateUniformBuffer(uint32_t currentImage)
