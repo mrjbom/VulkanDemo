@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
 			mainWindow.finishVulkan();
 		}
 	}
-	catch (std::exception ex)
+	catch (std::exception& ex)
 	{
 #ifdef _DEBUG
 		std::cout << ex.what();
@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
 #endif // _DEBUG
 		return EXIT_FAILURE;
 	}
-	catch (ErrorInfo errInfo)
+	catch (ErrorInfo& errInfo)
 	{
 		std::string errInfoStr = "MainWindow exception\n"
 			+ (std::string)"What: " + errInfo.what + "\n"

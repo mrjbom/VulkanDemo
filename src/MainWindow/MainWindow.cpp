@@ -128,7 +128,7 @@ void MainWindow::cleanupSwapchain()
 	vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
 	vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
-	for (VkImage& imageView : swapchainImageViews) {
+	for (auto& imageView : swapchainImageViews) {
 		vkDestroyImageView(logicalDevice, imageView, nullptr);
 	}
 	vkDestroySwapchainKHR(logicalDevice, swapchain, nullptr);
@@ -707,20 +707,20 @@ void MainWindow::createRenderPass()
 {
 	//Create render color attachment
 	//Attachment description
-	VkAttachmentDescription renderColorAttachment{};
-	renderColorAttachment.format = swapchainImageFormat;
-	renderColorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	VkAttachmentDescription sceneRenderColorAttachment{};
+	sceneRenderColorAttachment.format = swapchainImageFormat;
+	sceneRenderColorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	//Clear attachment before render
-	renderColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	sceneRenderColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	//The rendered attachment will be stored in memory for imgui render
-	renderColorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	sceneRenderColorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	//We are not interested in the stencil data
-	renderColorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	renderColorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	sceneRenderColorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	sceneRenderColorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	//We are not interested in the layout before starting the render
-	renderColorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	sceneRenderColorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	//The layout should be VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL because the image will be drawn on top of this ImGui and only then displayed.
-	renderColorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	sceneRenderColorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	//Create imgui color attachment
 	//Attachment description
@@ -738,37 +738,34 @@ void MainWindow::createRenderPass()
 	//We want the image to be ready for presentation using the swap chain after rendering
 	imguiColorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-	std::vector<VkAttachmentDescription> attachmentsDescriptions = { renderColorAttachment, imguiColorAttachment };
+	std::vector<VkAttachmentDescription> attachmentsDescriptions = { sceneRenderColorAttachment, imguiColorAttachment };
 
 	//Subpasses and attachment references
 	//Subpass refers to the attachment using VkAttachmentReference
-	VkAttachmentReference renderColorAttachmentRef{};
+	VkAttachmentReference sceneRenderColorAttachmentRef{};
 	//Index of the attachment that we created above earlier
-	renderColorAttachmentRef.attachment = 0;
-	renderColorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	sceneRenderColorAttachmentRef.attachment = 0;
+	sceneRenderColorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	VkAttachmentReference imguiColorAttachmentRef{};
 	imguiColorAttachmentRef.attachment = 1;
 	imguiColorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-	std::vector<VkAttachmentReference> attachmentsReferences = { renderColorAttachmentRef, imguiColorAttachmentRef };
+	//std::vector<VkAttachmentReference> attachmentsReferences = { sceneRenderColorAttachmentRef, imguiColorAttachmentRef };
 
-	VkSubpassDescription renderSubpass{};
-	renderSubpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	renderSubpass.colorAttachmentCount = 1;
+	VkSubpassDescription sceneRenderSubpass{};
+	sceneRenderSubpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	sceneRenderSubpass.colorAttachmentCount = 1;
 	//The index of the attachment in this array is directly referenced from the fragment shader
 	//with the layout(location = 0) out vec4 outColor directive!
-	renderSubpass.pColorAttachments = &renderColorAttachmentRef;
-	std::vector<uint32_t> preserveAttachmentsIndices = { 1 };
-	renderSubpass.preserveAttachmentCount = preserveAttachmentsIndices.size();
-	renderSubpass.pPreserveAttachments = preserveAttachmentsIndices.data();
+	sceneRenderSubpass.pColorAttachments = &sceneRenderColorAttachmentRef;
 
 	VkSubpassDescription imguiSubpass{};
 	imguiSubpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	imguiSubpass.colorAttachmentCount = 1;
 	imguiSubpass.pColorAttachments = &imguiColorAttachmentRef;
 
-	std::vector<VkSubpassDescription> subpasses = { renderSubpass, imguiSubpass };
+	std::vector<VkSubpassDescription> subpasses = { sceneRenderSubpass, imguiSubpass };
 
 	//Subpass dependencies
 	//Remember that the subpasses in a render pass automatically take care of image layout transitions.
@@ -776,13 +773,13 @@ void MainWindow::createRenderPass()
 	//which specify memory and execution dependencies between subpasses.
 	//We have only a single subpass right now,
 	//but the operations right before and right after this subpass also count as implicit "subpasses".
-	VkSubpassDependency renderSubpassDependency{};
-	renderSubpassDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	renderSubpassDependency.dstSubpass = 0;
-	renderSubpassDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	renderSubpassDependency.srcAccessMask = 0;
-	renderSubpassDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	renderSubpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	VkSubpassDependency sceneRenderSubpassDependency{};
+	sceneRenderSubpassDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	sceneRenderSubpassDependency.dstSubpass = 0;
+	sceneRenderSubpassDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	sceneRenderSubpassDependency.srcAccessMask = 0;
+	sceneRenderSubpassDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	sceneRenderSubpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
 	VkSubpassDependency imguiSubpassDependency{};
 	imguiSubpassDependency.srcSubpass = 0;
@@ -792,7 +789,7 @@ void MainWindow::createRenderPass()
 	imguiSubpassDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	imguiSubpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-	std::vector<VkSubpassDependency> subpassesDependencies = { renderSubpassDependency, imguiSubpassDependency };
+	std::vector<VkSubpassDependency> subpassesDependencies = { sceneRenderSubpassDependency, imguiSubpassDependency };
 
 	VkRenderPassCreateInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -804,7 +801,7 @@ void MainWindow::createRenderPass()
 	renderPassInfo.pDependencies = subpassesDependencies.data();
 
 	if (vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
-		throw MakeErrorInfo("Failed to create render pass!");
+		throw MakeErrorInfo("Failed to create renderpass!");
 	}
 }
 
